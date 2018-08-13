@@ -1,0 +1,34 @@
+data:
+  type: 'line-tfrecord'
+  base_path: './data'
+  train_data_pattern: 'line-train-*.tfrecord'
+  eval_data_pattern: 'line-eval-*.tfrecord'
+  num_classes: 4
+
+model:
+  type: 'line-crf'
+  tag_keys:  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,13,14]
+  tag_values: [0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 1, 1 ,1]
+  batch_size: 64
+  rnn_mode: 'GRU'
+  embed_dim: 64
+  hidden_size: 64
+  keep_prob: 0.5
+  vector_lenth: 55
+
+
+train:
+  learning_rate: 0.001
+  train_steps: 50001
+  model_dir: 'logs/line-crf-table'
+  useText: False
+
+  save_checkpoints_steps: 2000
+  loss_hook_n_iter: 1000
+  check_hook_n_iter: 1000
+  min_eval_frequency: 2000
+  eval_steps: 1000
+  print_verbose: False
+  useCNN: False
+  useCRNN : True
+  debug: False

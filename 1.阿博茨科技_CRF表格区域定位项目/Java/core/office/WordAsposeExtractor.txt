@@ -1,0 +1,158 @@
+package com.abcft.pdfextract.core.office;
+
+import com.abcft.pdfextract.core.Extractor;
+import com.abcft.pdfextract.core.chart.Chart;
+import com.abcft.pdfextract.core.chart.ChartCallback;
+import com.abcft.pdfextract.core.chart.ChartExtractParameters;
+import com.abcft.pdfextract.core.chart.ChartExtractionResult;
+import com.abcft.pdfextract.core.content.ContentExtractParameters;
+import com.abcft.pdfextract.core.content.ContentExtractorCallback;
+import com.abcft.pdfextract.core.content.Fulltext;
+import com.abcft.pdfextract.core.content.Paragraph;
+import com.abcft.pdfextract.core.table.Table;
+import com.abcft.pdfextract.core.table.TableCallback;
+import com.abcft.pdfextract.core.table.TableExtractParameters;
+import com.abcft.pdfextract.core.table.TableExtractionResult;
+import com.abcft.pdfextract.spi.Document;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+
+public class WordAsposeExtractor {
+    private static final Logger logger = LogManager.getLogger();
+
+    public static class ChartExtractor implements Extractor<WordAsposeDocument, ChartExtractParameters, Chart, ChartExtractionResult, ChartCallback> {
+
+        @Override
+        public int getVersion() {
+            return 2;
+        }
+
+        @Override
+        public ChartExtractionResult process(Document<WordAsposeDocument> document, ChartExtractParameters parameters, ChartCallback callback) {
+            if (callback == null) {
+                callback = new ChartCallback() {
+                    @Override
+                    public void onExtractionError(Throwable e) {
+                    }
+                    @Override
+                    public void onLoadError(Throwable e) {
+                    }
+                    @Override
+                    public void onFatalError(Throwable e) {
+                    }
+                    @Override
+                    public void onFinished(ChartExtractionResult result) {
+                    }
+                };
+            }
+
+            WordAsposeDocument asposeDocument = document.getDocument();
+            callback.onStart(asposeDocument);
+            try {
+                asposeDocument.process();
+            } catch (Exception e) {
+                logger.error(e);
+                e.printStackTrace();
+                callback.onFatalError(e);
+                return null;
+            }
+
+            ChartExtractionResult chartExtractionResult = new ChartExtractionResult();
+            for (Chart table: asposeDocument.getCharts()) {
+                callback.onItemExtracted(table);
+            }
+            chartExtractionResult.addCharts(asposeDocument.getCharts());
+            return chartExtractionResult;
+        }
+    }
+
+    public static class TableExtractor implements Extractor<WordAsposeDocument, TableExtractParameters, com.abcft.pdfextract.core.table.Table, TableExtractionResult, TableCallback> {
+
+        @Override
+        public int getVersion() {
+            return 2;
+        }
+
+        @Override
+        public TableExtractionResult process(Document<WordAsposeDocument> document, TableExtractParameters parameters, TableCallback callback) {
+            if (callback == null) {
+                callback = new TableCallback() {
+                    @Override
+                    public void onExtractionError(Throwable e) {
+                    }
+                    @Override
+                    public void onLoadError(Throwable e) {
+                    }
+                    @Override
+                    public void onFatalError(Throwable e) {
+                    }
+                    @Override
+                    public void onFinished(TableExtractionResult result) {
+                    }
+                };
+            }
+
+            WordAsposeDocument asposeDocument = document.getDocument();
+            callback.onStart(asposeDocument);
+            try {
+                asposeDocument.process();
+            } catch (Exception e) {
+                logger.error(e);
+                e.printStackTrace();
+                callback.onFatalError(e);
+                return null;
+            }
+            TableExtractionResult tableExtractionResult = new TableExtractionResult();
+            for (Table table: asposeDocument.getTables()) {
+                callback.onItemExtracted(table);
+                tableExtractionResult.addTable(table);
+            }
+            return tableExtractionResult;
+        }
+    }
+
+    public static class TextExtractor implements Extractor<WordAsposeDocument, ContentExtractParameters, com.abcft.pdfextract.core.content.Paragraph, Fulltext, ContentExtractorCallback> {
+
+        @Override
+        public int getVersion() {
+            return 2;
+        }
+
+        @Override
+        public Fulltext process(Document<WordAsposeDocument> document, ContentExtractParameters parameters, ContentExtractorCallback callback) {
+            if (callback == null) {
+                callback = new ContentExtractorCallback() {
+                    @Override
+                    public void onExtractionError(Throwable e) {
+                    }
+                    @Override
+                    public void onLoadError(Throwable e) {
+                    }
+                    @Override
+                    public void onFatalError(Throwable e) {
+                    }
+                    @Override
+                    public void onFinished(Fulltext result) {
+                    }
+                };
+            }
+            WordAsposeDocument asposeDocument = document.getDocument();
+            callback.onStart(asposeDocument);
+            try {
+                asposeDocument.process();
+            } catch (Exception e) {
+                logger.error(e);
+                e.printStackTrace();
+                callback.onFatalError(e);
+                return null;
+            }
+            Fulltext fulltext = asposeDocument.getFulltext();
+            for (Paragraph paragraph: fulltext.getParagraphs()) {
+                callback.onItemExtracted(paragraph);
+            }
+            callback.onFinished(fulltext);
+            return fulltext;
+        }
+    }
+}

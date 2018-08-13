@@ -1,0 +1,30 @@
+data:
+  type: 'text-tfrecord'
+  base_path: '/home/abc/paragraph-data/'
+  train_data_pattern: 'paragraph-train-*.tfrecord'
+  eval_data_pattern: 'paragraph-eval-*.tfrecord'
+  num_classes: 2
+
+model:
+  type: 'text-dnn'
+  batch_size: 32
+  seq_len: 6
+  rnn_mode: 'GRU'
+  embed_dim: 200
+  num_layers: 2
+  hidden_size: 200
+  keep_prob: 0.8
+
+train:
+  learning_rate: 0.001
+
+  train_steps: 180000
+  model_dir: 'logs/text-dnn'
+
+  save_checkpoints_steps: 1000
+  loss_hook_n_iter: 1000
+  check_hook_n_iter: 100
+  min_eval_frequency: 1000
+  eval_steps: 100
+  print_verbose: True
+  debug: False

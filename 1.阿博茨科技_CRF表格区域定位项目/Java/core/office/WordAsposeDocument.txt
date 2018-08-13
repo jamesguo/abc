@@ -1,0 +1,307 @@
+package com.abcft.pdfextract.core.office;
+
+import asposewobfuscated.*;
+import com.abcft.pdfextract.core.DocumentFactory;
+import com.abcft.pdfextract.core.chart.Chart;
+import com.abcft.pdfextract.core.content.Fulltext;
+import com.abcft.pdfextract.core.html.HtmlTableExtractor;
+import com.abcft.pdfextract.core.model.Rectangle;
+import com.abcft.pdfextract.core.table.Table;
+import com.abcft.pdfextract.core.table.TableExtractionResult;
+import com.abcft.pdfextract.core.util.GraphicsUtil;
+import com.aspose.words.*;
+import com.google.common.io.Files;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+
+public class WordAsposeDocument {
+
+    private static final Logger logger = LogManager.getLogger(WordAsposeDocument.class);
+
+    private final com.aspose.words.Document document;
+
+    private Fulltext fulltext;
+    private List<JsonObject> paragraphs;
+    private List<Chart> charts;
+    private List<Table> tables;
+    private String tempDirPath;
+    private boolean proccesed;
+
+    WordAsposeDocument(com.aspose.words.Document document) {
+        this.document = document;
+        this.proccesed = false;
+    }
+
+    public WordAsposeDocument(InputStream inputStream) throws Exception {
+        this(new com.aspose.words.Document(inputStream));
+    }
+
+    public WordAsposeDocument(File file) throws Exception {
+        this(new com.aspose.words.Document(file.getAbsolutePath()));
+    }
+
+    public void process() throws Exception {
+        if (proccesed) {
+            return;
+        }
+        extractCharts();
+        String html = convertWordToHTML();
+        processHtmlTables(html);
+        processFulltextAndParagraphs();
+        fulltext.setHtml(html);
+        proccesed = true;
+    }
+
+    private static Object callMethod(Object obj, String method) throws Exception {
+        Method m = obj.getClass().getDeclaredMethod(method);
+        m.setAccessible(true);
+        return m.invoke(obj);
+    }
+
+    private static zzP4 getSeriesXList(ChartSeries series) throws Exception {
+        return (zzP4) callMethod(callMethod(callMethod(series, "zzvu"), "zzmd"), "zzhF");
+    }
+
+    private static zzP4 getSeriesYList(ChartSeries series) throws Exception {
+        return (zzP4) callMethod(callMethod(callMethod(series, "zzvs"), "zzmd"), "zzhF");
+    }
+
+    private void extractCharts() throws Exception {
+        NodeCollection<Shape> shapes = document.getChildNodes(NodeType.SHAPE, true);
+        for (com.aspose.words.Shape shape : shapes) {
+            int shapeType = shape.getShapeType();
+            ImageData imageData;
+            BufferedImage image;
+            if (shapeType == ShapeType.IMAGE) {
+                imageData = shape.getImageData();
+                image = imageData.toImage();
+            } else  if (shapeType == 0) {
+                com.aspose.words.Chart chart = shape.getChart();
+                String title = chart.getTitle().getText();
+                ChartSeriesCollection seriesCollection = chart.getSeries();
+                for (int i = 0; i < seriesCollection.getCount(); i++) {
+                    ChartSeries series = seriesCollection.get(i);
+                    String name = series.getName();
+                    zzP4 xList = getSeriesXList(series);
+                    zzP4 yList = getSeriesYList(series);
+                    for (int j = 0; j < xList.getCount(); j++) {
+                        logger.info("{} {}: [{}, {}]", name, j,
+                                callMethod(xList.get(j), "getStringValue"),
+                                callMethod(yList.get(j), "getStringValue"));
+                    }
+                }
+            }
+        }
+    }
+
+    private void extractTables() {
+        NodeCollection<com.aspose.words.Table> tables = document.getChildNodes(NodeType.TABLE, true);
+        for (com.aspose.words.Table table : tables) {
+            for (Row row : table.getRows()) {
+                for (Cell cell : row.getCells()) {
+                    int hm = cell.getCellFormat().getHorizontalMerge();
+                    int vm = cell.getCellFormat().getVerticalMerge();
+                    int rowIndex =  cell.getParentRow().getParentTable().indexOf(cell.getParentRow());
+                    int colIndex = cell.getParentRow().indexOf(cell);
+                    String text = cell.getText();
+                    logger.info("Cell({}, {}): {}, w: {}, hm: {}, vm: {}", rowIndex, colIndex, text,  cell.getCellFormat().getWidth(), hm, vm);
+                }
+            }
+        }
+    }
+
+    private void processTable(com.aspose.words.Table tableNode) {
+        // TODO: use this instead of html parse
+        // TODO: cellFormat.getHorizontalMerge() is NOT working
+        // TODO: calculate the colSpan by `cellFormat.getWidth()`
+//        Table table = new Table();
+//        try {
+//            String title = tableNode.getPreviousSibling().getText();
+//            table.setTitle(title);
+//            System.out.println("tt:   " + title);
+//        } catch (Exception e) {
+//        }
+//
+//        ArrayList<ArrayList<Cell>> cells = new ArrayList<ArrayList<Cell>>(tableNode.getCount());
+//        for (com.aspose.words.Row rowNode : tableNode.getRows()) {
+//            int rowIndex = tableNode.indexOf(rowNode);
+//            System.out.println("r: " + rowIndex);
+//            cells.add(new ArrayList<>(rowNode.getCount()));
+//            for (com.aspose.words.Cell cellNode : rowNode.getCells()) {
+//                int colIndex = rowNode.indexOf(cellNode);
+//                com.aspose.words.CellFormat cellFormat = cellNode.getCellFormat();
+//                Cell c = new Cell();
+//                System.out.println("c:" + colIndex + " " + cellFormat.getWidth() + " " + cellFormat.getVerticalMerge());
+//                c.width = (float) cellFormat.getWidth();
+//                c.setText(cellNode.getRange().getText());
+//                if (cellFormat.getVerticalMerge() != CellMerge.NONE) {
+//                }
+//                cells.get(rowIndex).add(colIndex, c);
+//            }
+//        }
+//        System.out.println();
+    }
+
+    private void processFulltextAndParagraphs() throws Exception {
+        fulltext = new Fulltext();
+        paragraphs = new ArrayList<>();
+        JsonObject para = new JsonObject();
+        para.addProperty("pageIndex", 0);
+        JsonArray texts = new JsonArray();
+        for (com.aspose.words.Paragraph paragraph : (Iterable<com.aspose.words.Paragraph>) document.getChildNodes(NodeType.PARAGRAPH, true)) {
+            for (com.aspose.words.Run run : paragraph.getRuns()) {
+                String text = run.toString(SaveFormat.TEXT);
+                if (StringUtils.isBlank(text)) {
+                    continue;
+                }
+                com.aspose.words.Font font = run.getFont();
+                JsonObject jsonObject = new JsonObject();
+                jsonObject.addProperty("text", text);
+                jsonObject.addProperty("font_size", font.getSize());
+                try {
+                    jsonObject.addProperty("bold", font.getBold());
+                    jsonObject.addProperty("italic", font.getItalic());
+                    jsonObject.addProperty("underline", font.getUnderline());
+                    jsonObject.addProperty("line-through", font.getStrikeThrough());
+                    jsonObject.addProperty("color", GraphicsUtil.color2String(font.getColor()));
+                } catch (Exception ignored) {
+                }
+                texts.add(jsonObject);
+            }
+        }
+        para.add("texts", texts);
+        paragraphs.add(para);
+        fulltext.setFulltext(document.toString(SaveFormat.TEXT).trim());
+    }
+
+    private String convertWordToHTML() throws Exception {
+        File tempDir = Files.createTempDir();
+        HtmlSaveOptions options = new HtmlSaveOptions(SaveFormat.HTML);
+        options.setExportTextInputFormFieldAsText(true);
+        options.setImagesFolder(tempDir.getAbsolutePath());
+        OutputStream outputStream = new ByteArrayOutputStream();
+        document.save(outputStream, options);
+        charts = new ArrayList<>();
+        int index = 0;
+        for (File file: tempDir.listFiles()) {
+            Chart c = new Chart();
+            c.type = com.abcft.pdfextract.spi.ChartType.BITMAP_CHART;
+            c.pageIndex = index;
+            c.localImage = file.getAbsolutePath();
+            c.setArea(new Rectangle());
+            charts.add(c);
+            index++;
+        }
+        tempDirPath = tempDir.getAbsolutePath();
+        return outputStream.toString();
+    }
+
+    private String replaceChartsImageSrc(String html) {
+        for (Chart chart : charts) {
+            String pngFile = chart.getImageFile();
+            if (pngFile == null) {
+                pngFile = "";
+            }
+            html = html.replace(chart.localImage, pngFile);
+        }
+        return html;
+    }
+
+    private void processHtmlTables(String html) {
+        Document document = Jsoup.parse(html);
+        HtmlTableExtractor htmlTableExtractor = new HtmlTableExtractor();
+        TableExtractionResult tableExtractionResult = htmlTableExtractor.process(DocumentFactory.wrap(document), null, null);
+        tables = tableExtractionResult.getItems();
+    }
+
+    public Fulltext getFulltext() {
+        String html = replaceChartsImageSrc(fulltext.getHTML());
+        fulltext.setHtml(html);
+        return fulltext;
+    }
+
+    public List<JsonObject> getParagraphs() {
+        return paragraphs;
+    }
+
+    public List<Chart> getCharts() {
+        return charts;
+    }
+
+    public List<Table> getTables() {
+        return tables;
+    }
+
+    // TODO: put these in something like `Aspose tools utils`
+    private static boolean licensed = false;
+
+    public static boolean isLicensed() {
+        return licensed;
+    }
+
+    private static boolean setLicense() {
+        try {
+            ClassLoader classLoader = WordAsposeDocument.class.getClassLoader();
+            InputStream in = classLoader.getResourceAsStream("aspose.words.license.xml");
+            com.aspose.words.License license = new com.aspose.words.License();
+            license.setLicense(in);
+            licensed = license.getIsLicensed();
+        } catch (Exception e) {
+            licensed = false;
+        }
+        if (licensed) {
+            logger.info("Aspose.Words setLicense successfully");
+        } else {
+            logger.warn("Aspose.Words setLicense failed");
+        }
+        return licensed;
+    }
+
+    static {
+        setLicense();
+    }
+
+    private static void convertWordToHTML(String ss) throws Exception {
+        com.aspose.words.Document word = new com.aspose.words.Document(ss);
+        File imagesDir = new File(ss + "_images");
+        imagesDir.mkdir();
+        HtmlSaveOptions options = new HtmlSaveOptions(SaveFormat.HTML);
+        options.setExportTextInputFormFieldAsText(true);
+        options.setImagesFolder(imagesDir.getPath());
+        word.save(ss + ".html", options);
+    }
+
+    private static void test(String[] args) throws Exception {
+        String path = args[0];
+
+        com.aspose.words.Document word = new com.aspose.words.Document(path);
+        WordAsposeDocument doc = new WordAsposeDocument(word);
+        doc.process();
+        for (Chart chart : doc.charts) {
+            chart.setImageFile(chart.localImage);
+        }
+        FileUtils.write(new File(FilenameUtils.removeExtension(path) + ".html"), doc.getFulltext().getHTML(), "utf-8");
+        System.out.println("=======================");
+        System.out.println(doc.getFulltext().getText());
+    }
+
+    public static void main(String[] args) throws Exception {
+        test(args);
+    }
+}

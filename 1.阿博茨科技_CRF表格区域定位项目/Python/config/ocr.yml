@@ -1,0 +1,24 @@
+data:
+  type: 'tfrecord'
+  base_path: '/mnt/disk/abc/font-ocr/dataset/font-images'
+  train_data_pattern: '*.tfrecord'
+  eval_data_pattern: '*.tfrecord'
+
+model:
+  type: 'ocr'
+  net: 'cnn'
+  batch_size: 128
+
+train:
+  learning_rate: 0.001
+
+  train_steps: 50000
+  model_dir: '/mnt/disk/abc/font-ocr/logs'
+
+  save_checkpoints_steps: 1000
+  loss_hook_n_iter: 1000
+  check_hook_n_iter: 1000
+  min_eval_frequency: 1000
+  eval_steps: 1000
+  print_verbose: False
+  debug: False

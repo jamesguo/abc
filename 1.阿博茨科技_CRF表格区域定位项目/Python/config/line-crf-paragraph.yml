@@ -1,0 +1,34 @@
+data:
+  type: 'line-tfrecord'
+  base_path: '/home/txguo/abc/paragraph_train_data/'
+  train_data_pattern: 'line-train-*_Page7.tfrecord'
+  eval_data_pattern: 'line-eval-*_Page7.tfrecord'
+  num_classes: 13
+
+model:
+  type: 'line-crf'
+  app_type: 'paragraph'
+  tag_keys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  tag_values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  batch_size: 32
+  rnn_mode: 'GRU'
+  embed_dim: 64
+  hidden_size: 64
+  keep_prob: 0.8
+  vector_lenth: 49
+
+
+train:
+  learning_rate: 0.001
+  train_steps: 50001
+  model_dir: 'logs/line-crf13_newFeature_GRU'
+  useText: False
+
+  save_checkpoints_steps: 1000
+  loss_hook_n_iter: 1000
+  check_hook_n_iter: 1000
+  min_eval_frequency: 1000
+  eval_steps: 500
+  print_verbose: False
+  useCNN: False
+  debug: False
